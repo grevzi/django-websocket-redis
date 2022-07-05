@@ -29,6 +29,12 @@ except ImportError:
     # RemovedInDjango19Warning: django.utils.importlib will be removed in Django 1.9.
     from django.utils.importlib import import_module
 
+try:
+    # django >= 1.7
+    from django.utils.module_loading import import_string
+except ImportError:
+    # django >= 1.5
+    from django.utils.module_loading import import_by_path as import_string
 
 class WebsocketWSGIServer(object):
     def __init__(self, redis_connection=None):
@@ -87,7 +93,9 @@ class WebsocketWSGIServer(object):
         try:
             self.assure_protocol_requirements(environ)
             request = WSGIRequest(environ)
-            if callable(private_settings.WS4REDIS_PROCESS_REQUEST):
+            if isinstance(private_settings.WS4REDIS_PROCESS_REQUEST, six.string_types):
+                import_string(private_settings.WS4REDIS_PROCESS_REQUEST)(request)
+            elif callable(private_settings.WS4REDIS_PROCESS_REQUEST):
                 private_settings.WS4REDIS_PROCESS_REQUEST(request)
             else:
                 self.process_request(request)
@@ -111,7 +119,7 @@ class WebsocketWSGIServer(object):
             redis_fd = subscriber.get_file_descriptor()
             if redis_fd:
                 listening_fds.append(redis_fd)
-            subscriber.send_persited_messages(websocket)
+            subscriber.send_persisted_messages(websocket)
             recvmsg = None
             while websocket and not websocket.closed:
                 ready = self.select(listening_fds, [], [], 4.0)[0]
@@ -138,7 +146,9 @@ class WebsocketWSGIServer(object):
                     self._websockets.remove(websocket)
         except WebSocketError as excpt:
             logger.warning('WebSocketError: {}'.format(excpt), exc_info=sys.exc_info())
-            response = http.HttpResponse(status=1001, content='Websocket Closed')
+            response = http.HttpResponse(content='Websocket Closed')
+            # bypass status code validation in HttpResponse constructor -- necessary for Django v1.11
+            response.status_code = 1001
         except UpgradeRequiredError as excpt:
             logger.info('Websocket upgrade required')
             response = http.HttpResponseBadRequest(status=426, content=excpt)

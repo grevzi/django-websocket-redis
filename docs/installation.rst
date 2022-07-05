@@ -82,6 +82,15 @@ override these values
 
 .. note:: Specify only the values, which deviate from the default.
 
+If your Redis instance requires a SSL connection, set the ``ssl`` flag to ``True``: 
+
+.. code-block:: python
+
+	WS4REDIS_CONNECTION = {
+	    ...
+	    'ssl': True
+	}
+
 If your Redis instance is accessed via a Unix Domain Socket, you can configure that as well:
 
 .. code-block:: python
@@ -91,10 +100,10 @@ If your Redis instance is accessed via a Unix Domain Socket, you can configure t
 	    'db': 5
 	}
 
-**Websocket for Redis** can be configured with ``WS4REDIS_EXPIRE``, to additionally persist messages
-published on the message queue. This is advantageous in situations, where clients shall be able
-to access the published information after reconnecting the websocket, for instance after a page
-is reloaded.
+**Websocket for Redis** can be configured with ``WS4REDIS_EXPIRE``, to persist messages
+published on the message queue for extended periods of time. This is advantageous in situations, 
+where clients shall be able to access the published information after reconnecting the websocket, 
+for instance after a page is reloaded.
 
 This directive sets the number in seconds, each received message is persisted by Redis, additionally
 of being published on the message queue
@@ -102,6 +111,9 @@ of being published on the message queue
 .. code-block:: python
 
 	WS4REDIS_EXPIRE = 7200
+
+The default value is 3600. To turn off persistence, set this value to 0 and messages will expire 
+immediate after (trying) to dispatch to the Websocket.
 
 **Websocket for Redis** can prefix each entry in the datastore with a string. By default, this
 is empty. If the same Redis connection is used to store other kinds of data, in order to avoid name
@@ -111,14 +123,14 @@ clashes you're encouraged to prefix these entries with a unique string, say
 
 	WS4REDIS_PREFIX = 'ws'
 
-Override ``ws4redis.store.RedisStore`` with a customized class, in case you need an alternative
-implementation of that class
+By default, ``ws4redis.subscriber.RedisSubscriber`` is used to listen to websocket messages. In case you
+need an alternative implementation, extend ``w4redis.redis_store.RedisStore`` 
 
 .. code-block:: python
 
-	WS4REDIS_SUBSCRIBER = 'myapp.redis_store.RedisSubscriber'
+	WS4REDIS_SUBSCRIBER = 'myapp.subscriber.RedisSubscriber'
 
-This directive is required during development and ignored in production environments. It overrides
+The following directive is required during development and ignored in production environments. It overrides
 Django's internal main loop and adds a URL dispatcher in front of the request handler
 
 .. code-block:: python
@@ -132,7 +144,10 @@ Ensure that your template context contains at least these processors:
 	TEMPLATE_CONTEXT_PROCESSORS = (
 	    ...
 	    'django.contrib.auth.context_processors.auth',
-	    'django.core.context_processors.static',
+	    # Django <=1.8:
+	    'django.core.context_processors.static',  
+	    # Django >= 1.9:
+	    # 'django.template.context_processors.static',  
 	    'ws4redis.context_processors.default',
 	    ...
 	)

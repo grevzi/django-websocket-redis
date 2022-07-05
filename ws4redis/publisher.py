@@ -3,16 +3,28 @@ from redis import ConnectionPool, StrictRedis
 from ws4redis import settings
 from ws4redis.redis_store import RedisStore
 from ws4redis._compat import is_authenticated
-from redis.connection import UnixDomainSocketConnection
+from redis.connection import (
+    UnixDomainSocketConnection,
+    Connection,
+    SSLConnection,
+)
 
 if 'unix_socket_path' in settings.WS4REDIS_CONNECTION:
     # rename 'unix_socket_path' to 'path' and pass as args
     conn_args = dict(settings.WS4REDIS_CONNECTION,
             path=settings.WS4REDIS_CONNECTION['unix_socket_path'])
     del conn_args['unix_socket_path']
-    pool = ConnectionPool(connection_class=UnixDomainSocketConnection, **conn_args)
+    redis_connection_pool = ConnectionPool(connection_class=UnixDomainSocketConnection, **conn_args)
 else:
-    redis_connection_pool = ConnectionPool(**settings.WS4REDIS_CONNECTION)
+    conn_args = dict(settings.WS4REDIS_CONNECTION)
+    if conn_args.pop("ssl", None):
+        connection_class = SSLConnection
+    else:
+        connection_class = Connection
+    redis_connection_pool = ConnectionPool(
+        connection_class=connection_class, **conn_args
+    )
+
 
 class RedisPublisher(RedisStore):
     def __init__(self, **kwargs):
